@@ -1,38 +1,35 @@
-from email.policy import default
-import sqlite3
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from datetime import date, datetime
+import os
+from flask import Flask, jsonify
+from flask_jwt_extended import JWTManager
+from flask_cors import CORS
+from api.utils import APIException
+from api.models import db
+from api.routes import api
 
-
-host = 'perfect-match-database.cyf5ascpbcvs.us-east-1.rds.amazonaws.com'
-database = 'perfect_match_db'
-port = 5432
-user = 'eduardo'
-password = '%Helium_77'
-
+ENV = os.getenv("FLASK_ENV")
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://eduardo:%Helium_77@perfect-match-database.cyf5ascpbcvs.us-east-1.rds.amazonaws.com/perfect_match_db'
-db = SQLAlchemy(app)
+app.url_map.strict_slashes = False
 
-class User (db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(100))
-    gender = db.Column(db.String(100), nullable=False)
-    preference = db.Column(db.String(100), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+# Setup database
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 
-    def __repr__(self) -> str:
-        return f"User: {self.username}"
-    
-    def __init__(self, username) -> None:
-        self.username = username
+# Setup the Flask-JWT-Extended extension
+app.config["JWT_SECRET_KEY"] = os.environ.get('JWT_SECRET')
+jwt = JWTManager(app)
 
-@app.route('/')
-def hello():
-    return 'Hello!'
+db.init_app(app)
+CORS(app)
+
+with app.app_context():
+    db.create_all()
+
+# Add all endpoints
+app.register_blueprint(api)
+
+# Handle/serialize errors like a JSON object
+@app.errorhandler(APIException)
+def handle_invalid_usage(error):
+    return jsonify(error.to_dict()), error.status_code
 
 if __name__ == 'main':
     app.run()
