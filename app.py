@@ -1,24 +1,21 @@
 import os
 from flask import Flask, jsonify
-from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+from api.config import ApplicationConfig
 from api.utils import APIException
 from api.models import db
-from api.routes import api
+from api.routes import bcrypt, server_session
 
 ENV = os.getenv("FLASK_ENV")
 app = Flask(__name__)
-app.url_map.strict_slashes = False
+app.config.from_object(ApplicationConfig)
 
-# Setup database
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-
-# Setup the Flask-JWT-Extended extension
-app.config["JWT_SECRET_KEY"] = os.environ.get('JWT_SECRET')
-jwt = JWTManager(app)
+from api.routes import api
 
 db.init_app(app)
-CORS(app)
+bcrypt.init_app(app)
+server_session.init_app(app)
+CORS(app, supports_credentials=True)
 
 with app.app_context():
     db.create_all()

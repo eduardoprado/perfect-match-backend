@@ -6,8 +6,8 @@ db = SQLAlchemy()
 class Users (db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(100))
-    password = db.Column(db.String(80))
+    email = db.Column(db.String(100), unique=True)
+    password = db.Column(db.Text())
     gender = db.Column(db.String(100), nullable=False)
     preference = db.Column(db.String(100), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -29,7 +29,7 @@ class Users (db.Model):
 class Images (db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    url = preference = db.Column(db.String(200), nullable=False)
+    url = db.Column(db.String(200), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
