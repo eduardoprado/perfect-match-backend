@@ -47,12 +47,11 @@ def login():
       return jsonify({"error": "Unauthorized"}), 401
 
     session["user_id"] = user.id
-
     return format_user(user)
 
 @api.route('/logout', methods=["POST"])
 def logout():
-    session.pop('user_id')
+    session.clear()
     return '200'
 
 @api.route('/register', methods=["POST"])
@@ -74,7 +73,6 @@ def register():
     db.session.commit()
 
     session["user_id"] = new_user.id
-    print(session["user_id"])
 
     return format_user(new_user)
 
