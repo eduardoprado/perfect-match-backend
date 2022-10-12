@@ -10,6 +10,10 @@ api = Blueprint('api', __name__)
 bcrypt = Bcrypt()
 server_session = Session()
 
+@api.route('/hello', methods=["GET"])
+def hello():
+    return 'Hello World!', 200
+
 # Register user
 def format_user(user):
   return {
