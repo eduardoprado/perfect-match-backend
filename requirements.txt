@@ -24,4 +24,3 @@ redis==4.3.4
 six==1.16.0
 SQLAlchemy==1.4.41
 Werkzeug==2.2.2
-wrapt==1.14.1
