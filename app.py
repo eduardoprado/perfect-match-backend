@@ -17,8 +17,8 @@ bcrypt.init_app(app)
 server_session.init_app(app)
 CORS(app, supports_credentials=True)
 
-with app.app_context():
-    db.create_all()
+# with app.app_context():
+#     db.create_all()
 
 # Add all endpoints
 app.register_blueprint(api)
