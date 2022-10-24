@@ -52,7 +52,7 @@ def login():
 
     session["user_id"] = user.id
     return format_user(user)
-
+ 
 @api.route('/logout', methods=["POST"])
 def logout():
     session.clear()
