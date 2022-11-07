@@ -54,3 +54,16 @@ class Dislikes (db.Model):
     def __init__(self, user_id, user_disliked_id):
         self.user_id = user_id
         self.user_disliked_id = user_disliked_id
+
+class Recommendation (db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    user_evaluated_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    accuracy = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __init__(self, user_id, user_evaluated_id, accuracy):
+        self.user_id = user_id
+        self.user_evaluated_id = user_evaluated_id
+        self.accuracy = accuracy

@@ -139,6 +139,46 @@ def queue(user_id):
     pictures = result[0][3]
     return format_queue(user_id, username, gender, pictures)
 
+# Recomendation
+
+def format_recommendation(id, username, gender, likeability, rank, pictures):
+  return {
+    'user_queue_id': id,
+    'username': username,
+    'gender': gender,
+    'pictures': pictures,
+    'likeability': likeability,
+    'rank': rank,
+  }
+
+@api.route('/recommendation/<user_id>', methods=['GET'])
+def recommendation(user_id):
+    query = """
+      SELECT u.id
+        , username
+        , gender
+		    , r.accuracy as likeability
+		    , RANK() OVER (ORDER BY r.accuracy desc)
+        , ARRAY_AGG(i.url ORDER BY  i.url)
+      FROM users u
+      INNER JOIN recommendation r on r.user_evaluated_id = u.id
+      INNER JOIN images i on i.user_id = u.id
+      WHERE r.user_id = :user_id 
+      GROUP BY 1,2,3,4"""
+
+    result = list(db.session.execute(query, {"user_id":user_id}))
+    recommended_users = []
+    for user in result:
+        user_id = user[0]
+        username = user[1]
+        gender = user[2]
+        likeability = user[3]
+        rank = user[4]
+        pictures = user[5]
+        formated_user = format_recommendation(user_id, username, gender, likeability, rank, pictures)
+        recommended_users.append(formated_user)
+    return recommended_users
+
 # Create Likes
 def format_like(like):
   return {
