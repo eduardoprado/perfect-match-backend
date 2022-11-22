@@ -4,35 +4,41 @@ from flask_jwt_extended import jwt_required
 from flask_bcrypt import Bcrypt
 from flask_session import Session
 from api.models import Dislikes, Users, db, Likes
+import boto3
+import os
 
 api = Blueprint('api', __name__)
 
 bcrypt = Bcrypt()
 server_session = Session()
 
+
 @api.route('/hello', methods=["GET"])
 def hello():
     return 'Hello World!', 200
 
 # Register user
+
+
 def format_user(user):
-  return {
-    "created_at": user.created_at,
-    "id": user.id,
-    "email": user.email,
-    "password": user.password,
-    "username": user.username,
-    "gender": user.gender,
-    "preference": user.preference
-  }
+    return {
+        "created_at": user.created_at,
+        "id": user.id,
+        "email": user.email,
+        "password": user.password,
+        "username": user.username,
+        "gender": user.gender,
+        "preference": user.preference
+    }
+
 
 @api.route('/@me', methods=["GET"])
 def get_current_user():
     user_id = session.get("user_id")
 
     if not user_id:
-      return jsonify({"error": "Unauthorized"}), 401 
-    
+        return jsonify({"error": "Unauthorized"}), 401
+
     user = Users.query.filter_by(id=user_id).first()
     return format_user(user)
 
@@ -45,18 +51,20 @@ def login():
     user = Users.query.filter_by(email=email).first()
 
     if user is None:
-      return jsonify({"error": "Unauthorized"}), 401
+        return jsonify({"error": "Unauthorized"}), 401
 
     if not bcrypt.check_password_hash(user.password, password):
-      return jsonify({"error": "Unauthorized"}), 401
+        return jsonify({"error": "Unauthorized"}), 401
 
     session["user_id"] = user.id
     return format_user(user)
- 
+
+
 @api.route('/logout', methods=["POST"])
 def logout():
     session.clear()
     return '200'
+
 
 @api.route('/register', methods=["POST"])
 def register():
@@ -69,8 +77,8 @@ def register():
     user_exist = Users.query.filter_by(email=email).first() is not None
 
     if user_exist:
-      return jsonify({"error": "User already exist"}), 409
-    
+        return jsonify({"error": "User already exist"}), 409
+
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
     new_user = Users(username, email, hashed_password, gender, preference)
     db.session.add(new_user)
@@ -79,6 +87,7 @@ def register():
     session["user_id"] = new_user.id
 
     return format_user(new_user)
+
 
 @api.route('/user/<user_id>', methods=['GET'])
 def get_user(user_id):
@@ -94,27 +103,29 @@ def get_user(user_id):
       WHERE u.id = :user_id
       GROUP BY 1"""
 
-    result = list(db.session.execute(query, {"user_id":user_id}))
+    result = list(db.session.execute(query, {"user_id": user_id}))
     username = result[0][0]
     total_likes = result[0][1]
     total_dislikes = result[0][2]
     total_images = result[0][3]
     total_people = total_likes + total_dislikes
     return {
-      "username": username,
-      "total_likes": total_likes,
-      "total_dislikes": total_dislikes,
-      "total_images": total_images,
-      "total_people": total_people
+        "username": username,
+        "total_likes": total_likes,
+        "total_dislikes": total_dislikes,
+        "total_images": total_images,
+        "total_people": total_people
     }
 
+
 def format_queue(id, username, gender, pictures):
-  return {
-    'user_queue_id': id,
-    'username': username,
-    'gender': gender,
-    'pictures': pictures,
-  }
+    return {
+        'user_queue_id': id,
+        'username': username,
+        'gender': gender,
+        'pictures': pictures,
+    }
+
 
 @api.route('/queue/<user_id>', methods=['GET'])
 def queue(user_id):
@@ -132,7 +143,7 @@ def queue(user_id):
       ORDER BY RANDOM()
       LIMIT 1"""
 
-    result = list(db.session.execute(query, {"user_id":user_id}))
+    result = list(db.session.execute(query, {"user_id": user_id}))
     user_id = result[0][0]
     username = result[0][1]
     gender = result[0][2]
@@ -141,15 +152,17 @@ def queue(user_id):
 
 # Recomendation
 
+
 def format_recommendation(id, username, gender, likeability, rank, pictures):
-  return {
-    'user_queue_id': id,
-    'username': username,
-    'gender': gender,
-    'pictures': pictures,
-    'likeability': likeability,
-    'rank': rank,
-  }
+    return {
+        'user_queue_id': id,
+        'username': username,
+        'gender': gender,
+        'pictures': pictures,
+        'likeability': likeability,
+        'rank': rank,
+    }
+
 
 @api.route('/recommendation/<user_id>', methods=['GET'])
 def recommendation(user_id):
@@ -166,7 +179,7 @@ def recommendation(user_id):
       WHERE r.user_id = :user_id 
       GROUP BY 1,2,3,4"""
 
-    result = list(db.session.execute(query, {"user_id":user_id}))
+    result = list(db.session.execute(query, {"user_id": user_id}))
     recommended_users = []
     for user in result:
         user_id = user[0]
@@ -175,17 +188,21 @@ def recommendation(user_id):
         likeability = user[3]
         rank = user[4]
         pictures = user[5]
-        formated_user = format_recommendation(user_id, username, gender, likeability, rank, pictures)
+        formated_user = format_recommendation(
+            user_id, username, gender, likeability, rank, pictures)
         recommended_users.append(formated_user)
     return recommended_users
 
 # Create Likes
+
+
 def format_like(like):
-  return {
-    "created_at": like.created_at,
-    "user_id": like.user_id,
-    "user_liked_id": like.user_liked_id,
-  }
+    return {
+        "created_at": like.created_at,
+        "user_id": like.user_id,
+        "user_liked_id": like.user_liked_id,
+    }
+
 
 @api.route('/like', methods=['POST'])
 def create_like():
@@ -197,12 +214,15 @@ def create_like():
     return format_like(like)
 
 # Create Dislikes
+
+
 def format_dislike(dislike):
-  return {
-    "created_at": dislike.created_at,
-    "user_id": dislike.user_id,
-    "user_disliked_id": dislike.user_disliked_id,
-  }
+    return {
+        "created_at": dislike.created_at,
+        "user_id": dislike.user_id,
+        "user_disliked_id": dislike.user_disliked_id,
+    }
+
 
 @api.route('/delete_info/<user_id>', methods=['DELETE'])
 def delete_all(user_id):
@@ -210,6 +230,7 @@ def delete_all(user_id):
     dislikes = Dislikes.query.filter_by(user_id=user_id).delete()
     db.session.commit()
     return f'Reactions deleted: {likes} likes and {dislikes} dislikes'
+
 
 @api.route('/dislike', methods=['POST'])
 def create_dislike():
@@ -219,6 +240,22 @@ def create_dislike():
     db.session.add(dislike)
     db.session.commit()
     return format_dislike(dislike)
+
+
+@api.route('/performance/<user_id>', methods=['GET'])
+def entry(user_id):
+    bucket_data = 'sagemaker-us-east-1-495878410334'
+    s3 = boto3.resource('s3', aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+                        )
+    bucket = s3.Bucket(bucket_data)
+    filename_prefix = 'data/' + user_id
+    for file in bucket.objects.filter(Prefix=filename_prefix):
+        file_name = file.key
+        if file_name is not None:
+            obj = s3.Object(bucket_data, file_name)
+            data = obj.get()['Body'].read()
+    return data
+
 
 @api.route("/protected", methods=["GET"])
 @jwt_required()
