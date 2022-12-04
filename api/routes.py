@@ -6,6 +6,8 @@ from flask_session import Session
 from api.models import Dislikes, Users, db, Likes
 import boto3
 import os
+import json
+
 
 api = Blueprint('api', __name__)
 
@@ -242,8 +244,104 @@ def create_dislike():
     return format_dislike(dislike)
 
 
+def format_summary(total_likes, total_dislikes, accuracy, loss, performance):
+    performance_upper_threshold = 0.9
+    performance_lower_threshold = 0.8
+    accuracy_upper_threshold = 0.9
+    accuracy_lower_threshold = 0.8
+    loss_threshold_upper_threshold = 0.3
+    loss_threshold_lower_threshold = 0.2
+    data_evaluation = ""
+    training_evaluation = ""
+    performance_evaluation = ""
+    overall_evaluation = ""
+    data_balance_upper_threshold = 0.2
+    data_balance_lower_threshold = 0.01
+
+    total_images = total_likes + total_dislikes
+
+    if total_likes/total_images <= data_balance_lower_threshold or total_dislikes/total_images <= data_balance_lower_threshold:
+        data_evaluation = "failed"
+    elif total_likes/total_images < data_balance_upper_threshold or total_dislikes/total_images <= data_balance_upper_threshold:
+        data_evaluation = "warning"
+    else:
+        data_evaluation = "approved"
+
+    if performance >= performance_upper_threshold:
+        performance_evaluation = "approved"
+    elif performance < performance_upper_threshold and performance >= performance_lower_threshold:
+        performance_evaluation = "warning"
+    else:
+        performance_evaluation = "failed"
+
+    if (accuracy >= accuracy_upper_threshold and loss <= loss_threshold_upper_threshold) or (accuracy >= accuracy_lower_threshold and loss <= loss_threshold_lower_threshold):
+        training_evaluation = "approved"
+    elif (accuracy >= accuracy_lower_threshold and loss <= loss_threshold_upper_threshold):
+        training_evaluation = "warning"
+    else:
+        training_evaluation = "failed"
+
+    if training_evaluation == "failed" or performance_evaluation == "failed":
+        overall_evaluation = "failed"
+    elif training_evaluation == "warning" or performance_evaluation == "warning":
+        overall_evaluation = "warning"
+    else:
+        overall_evaluation = "approved"
+
+    return {
+        "data": data_evaluation,
+        "training": training_evaluation,
+        "performance": performance_evaluation,
+        "overall": overall_evaluation
+    }
+
+
+@api.route('/trained/<user_id>', methods=['GET'])
+def trained(user_id):
+    query = """
+      SELECT 	COUNT(i.id) as total_images
+      FROM likes l
+      LEFT JOIN users u on l.user_liked_id = u.id
+      INNER JOIN images i on i.user_id = u.id
+      WHERE l.user_id = :user_id
+      UNION
+      SELECT COUNT(i.id) as total_images
+      FROM dislikes d
+      LEFT JOIN users u on d.user_disliked_id = u.id
+      INNER JOIN images i on i.user_id = u.id
+      WHERE d.user_id = :user_id"""
+    result = list(db.session.execute(query, {"user_id": user_id}))
+    total_likes_images = result[0][0]
+    total_dislikes_images = result[1][0]
+    # approximate value after enhancement
+    if total_likes_images < 140:
+        total_likes_images = 140
+    if total_dislikes_images < 140:
+        total_dislikes_images = 140
+
+    bucket_data = 'sagemaker-us-east-1-495878410334'
+    s3 = boto3.resource('s3', aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+                        )
+    bucket = s3.Bucket(bucket_data)
+    filename_prefix = 'data/' + user_id
+    for file in bucket.objects.filter(Prefix=filename_prefix):
+        file_name = file.key
+        if file_name is not None:
+            obj = s3.Object(bucket_data, file_name)
+            data = obj.get()['Body'].read()
+            data_json = json.loads(data)
+    loss_len = len(data_json["data_loss"])
+    acc_len = len(data_json["data_accuracy"])
+    loss_data = data_json["data_loss"][loss_len-10:loss_len]
+    acc_data = data_json["data_accuracy"][acc_len-10:acc_len]
+    loss = sum(d['loss'] for d in loss_data) / len(loss_data)
+    accuracy = sum(d['accuracy'] for d in acc_data) / len(acc_data)
+    performance = data_json["performance_data"]["f1_score"]
+    return format_summary(total_likes_images, total_dislikes_images, accuracy, loss, performance)
+
+
 @api.route('/performance/<user_id>', methods=['GET'])
-def entry(user_id):
+def performance(user_id):
     bucket_data = 'sagemaker-us-east-1-495878410334'
     s3 = boto3.resource('s3', aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
                         )
