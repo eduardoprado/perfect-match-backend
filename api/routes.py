@@ -3,7 +3,7 @@ from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
 from flask_bcrypt import Bcrypt
 from flask_session import Session
-from api.models import Dislikes, Users, db, Likes
+from api.models import Dislikes, Users, db, Likes, Admins
 import boto3
 import os
 import json
@@ -60,6 +60,28 @@ def login():
 
     session["user_id"] = user.id
     return format_user(user)
+
+
+@api.route('/login-admin', methods=["POST"])
+def login_admin():
+    email = request.json['email']
+    password = request.json['password']
+
+    admin = Admins.query.filter_by(email=email).first()
+
+    if admin is None:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if not bcrypt.check_password_hash(admin.password, password):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    session["user_id"] = admin.id
+    return {
+        "id": admin.id,
+        "email": admin.email,
+        "password": admin.password,
+        "username": admin.username,
+    }
 
 
 @api.route('/logout', methods=["POST"])
