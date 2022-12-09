@@ -3,21 +3,21 @@ from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
 from flask_bcrypt import Bcrypt
 from flask_session import Session
-from api.models import Dislikes, Users, db, Likes, Admins
+from api.models import Dislikes, Users, db, Likes, Admins, Models
 import boto3
 import os
 import json
+from datetime import datetime
 
-
-api = Blueprint('api', __name__)
+api = Blueprint("api", __name__)
 
 bcrypt = Bcrypt()
 server_session = Session()
 
 
-@api.route('/hello', methods=["GET"])
+@api.route("/hello", methods=["GET"])
 def hello():
-    return 'Hello World!', 200
+    return "Hello World!", 200
 
 # Register user
 
@@ -34,7 +34,7 @@ def format_user(user):
     }
 
 
-@api.route('/@me', methods=["GET"])
+@api.route("/@me", methods=["GET"])
 def get_current_user():
     user_id = session.get("user_id")
 
@@ -45,10 +45,10 @@ def get_current_user():
     return format_user(user)
 
 
-@api.route('/login', methods=["POST"])
+@api.route("/login", methods=["POST"])
 def login():
-    email = request.json['email']
-    password = request.json['password']
+    email = request.json["email"]
+    password = request.json["password"]
 
     user = Users.query.filter_by(email=email).first()
 
@@ -62,10 +62,10 @@ def login():
     return format_user(user)
 
 
-@api.route('/login-admin', methods=["POST"])
+@api.route("/login-admin", methods=["POST"])
 def login_admin():
-    email = request.json['email']
-    password = request.json['password']
+    email = request.json["email"]
+    password = request.json["password"]
 
     admin = Admins.query.filter_by(email=email).first()
 
@@ -84,26 +84,26 @@ def login_admin():
     }
 
 
-@api.route('/logout', methods=["POST"])
+@api.route("/logout", methods=["POST"])
 def logout():
     session.clear()
-    return '200'
+    return "200"
 
 
-@api.route('/register', methods=["POST"])
+@api.route("/register", methods=["POST"])
 def register():
-    username = request.json['username']
-    email = request.json['email']
-    password = request.json['password']
-    gender = request.json['gender']
-    preference = request.json['preference']
+    username = request.json["username"]
+    email = request.json["email"]
+    password = request.json["password"]
+    gender = request.json["gender"]
+    preference = request.json["preference"]
 
     user_exist = Users.query.filter_by(email=email).first() is not None
 
     if user_exist:
         return jsonify({"error": "User already exist"}), 409
 
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+    hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
     new_user = Users(username, email, hashed_password, gender, preference)
     db.session.add(new_user)
     db.session.commit()
@@ -113,7 +113,7 @@ def register():
     return format_user(new_user)
 
 
-@api.route('/user/<user_id>', methods=['GET'])
+@api.route("/user/<user_id>", methods=["GET"])
 def get_user(user_id):
     query = """
       SELECT u.username
@@ -144,14 +144,14 @@ def get_user(user_id):
 
 def format_queue(id, username, gender, pictures):
     return {
-        'user_queue_id': id,
-        'username': username,
-        'gender': gender,
-        'pictures': pictures,
+        "user_queue_id": id,
+        "username": username,
+        "gender": gender,
+        "pictures": pictures,
     }
 
 
-@api.route('/queue/<user_id>', methods=['GET'])
+@api.route("/queue/<user_id>", methods=["GET"])
 def queue(user_id):
     query = """
       SELECT u.id
@@ -179,16 +179,16 @@ def queue(user_id):
 
 def format_recommendation(id, username, gender, likeability, rank, pictures):
     return {
-        'user_queue_id': id,
-        'username': username,
-        'gender': gender,
-        'pictures': pictures,
-        'likeability': likeability,
-        'rank': rank,
+        "user_queue_id": id,
+        "username": username,
+        "gender": gender,
+        "pictures": pictures,
+        "likeability": likeability,
+        "rank": rank,
     }
 
 
-@api.route('/recommendation/<user_id>', methods=['GET'])
+@api.route("/recommendation/<user_id>", methods=["GET"])
 def recommendation(user_id):
     query = """
       SELECT u.id
@@ -228,10 +228,10 @@ def format_like(like):
     }
 
 
-@api.route('/like', methods=['POST'])
+@api.route("/like", methods=["POST"])
 def create_like():
-    user_id = request.json['user_id']
-    user_liked_id = request.json['user_liked_id']
+    user_id = request.json["user_id"]
+    user_liked_id = request.json["user_liked_id"]
     like = Likes(user_id, user_liked_id)
     db.session.add(like)
     db.session.commit()
@@ -248,18 +248,18 @@ def format_dislike(dislike):
     }
 
 
-@api.route('/delete_info/<user_id>', methods=['DELETE'])
+@api.route("/delete_info/<user_id>", methods=["DELETE"])
 def delete_all(user_id):
     likes = Likes.query.filter_by(user_id=user_id).delete()
     dislikes = Dislikes.query.filter_by(user_id=user_id).delete()
     db.session.commit()
-    return f'Reactions deleted: {likes} likes and {dislikes} dislikes'
+    return f"Reactions deleted: {likes} likes and {dislikes} dislikes"
 
 
-@api.route('/dislike', methods=['POST'])
+@api.route("/dislike", methods=["POST"])
 def create_dislike():
-    user_id = request.json['user_id']
-    user_disliked_id = request.json['user_disliked_id']
+    user_id = request.json["user_id"]
+    user_disliked_id = request.json["user_disliked_id"]
     dislike = Dislikes(user_id, user_disliked_id)
     db.session.add(dislike)
     db.session.commit()
@@ -318,7 +318,7 @@ def format_summary(total_likes, total_dislikes, accuracy, loss, performance):
     }
 
 
-@api.route('/trained/<user_id>', methods=['GET'])
+@api.route("/summary/<user_id>", methods=["GET"])
 def trained(user_id):
     query = """
       SELECT 	COUNT(i.id) as total_images
@@ -341,45 +341,156 @@ def trained(user_id):
     if total_dislikes_images < 140:
         total_dislikes_images = 140
 
-    bucket_data = 'sagemaker-us-east-1-495878410334'
-    s3 = boto3.resource('s3', aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+    bucket_data = "sagemaker-us-east-1-495878410334"
+    s3 = boto3.resource("s3", aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"), aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
                         )
     bucket = s3.Bucket(bucket_data)
-    filename_prefix = 'data/' + user_id
+    filename_prefix = "data/" + user_id
     for file in bucket.objects.filter(Prefix=filename_prefix):
         file_name = file.key
         if file_name is not None:
             obj = s3.Object(bucket_data, file_name)
-            data = obj.get()['Body'].read()
+            data = obj.get()["Body"].read()
             data_json = json.loads(data)
     loss_len = len(data_json["data_loss"])
     acc_len = len(data_json["data_accuracy"])
     loss_data = data_json["data_loss"][loss_len-10:loss_len]
     acc_data = data_json["data_accuracy"][acc_len-10:acc_len]
-    loss = sum(d['loss'] for d in loss_data) / len(loss_data)
-    accuracy = sum(d['accuracy'] for d in acc_data) / len(acc_data)
+    loss = sum(d["loss"] for d in loss_data) / len(loss_data)
+    accuracy = sum(d["accuracy"] for d in acc_data) / len(acc_data)
     performance = data_json["performance_data"]["f1_score"]
     return format_summary(total_likes_images, total_dislikes_images, accuracy, loss, performance)
 
 
-@api.route('/performance/<user_id>', methods=['GET'])
+@api.route("/performance/<user_id>", methods=["GET"])
 def performance(user_id):
-    bucket_data = 'sagemaker-us-east-1-495878410334'
-    s3 = boto3.resource('s3', aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+    bucket_data = "sagemaker-us-east-1-495878410334"
+    s3 = boto3.resource("s3", aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"), aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
                         )
     bucket = s3.Bucket(bucket_data)
-    filename_prefix = 'data/' + user_id
+    filename_prefix = "data/" + user_id
     for file in bucket.objects.filter(Prefix=filename_prefix):
         file_name = file.key
         if file_name is not None:
             obj = s3.Object(bucket_data, file_name)
-            data = obj.get()['Body'].read()
+            data = obj.get()["Body"].read()
     return data
 
 
-@api.route("/protected", methods=["GET"])
-@jwt_required()
-def protected():
-    # Access the identity of the current user with get_jwt_identity
-    current_user = get_jwt_identity()
-    return jsonify(logged_in_as=current_user), 200
+@api.route("/model", methods=["POST"])
+def create_model():
+    user_requested_id = request.json["user_requested_id"]
+    status = request.json["status"]
+    model = Models(user_requested_id, status)
+    db.session.add(model)
+    db.session.commit()
+    return {
+        "created_at": model.created_at,
+        "user_id": model.user_requested_id,
+        "status": model.status,
+    }
+
+
+@api.route("/update_model/<admin_evaluated_id>", methods=["POST"])
+def update_model(admin_evaluated_id):
+    status = request.json["status"]
+    model_id = request.json["model_id"]
+
+    model = Models.query.filter_by(id=model_id).first()
+    model.status = status
+    model.admin_evaluated_id = admin_evaluated_id
+    model.updated_at = datetime.utcnow()
+    db.session.commit()
+    return {
+        "created_at": model.created_at,
+        "updated_at": model.updated_at,
+        "user_requested_id": model.user_requested_id,
+        "admin_evaluated_id": model.admin_evaluated_id,
+        "status": model.status,
+    }
+
+
+def format_model_user(model_id, user_requested_id, username, gender, preference, status, created_at):
+    if status == "pending":
+        status = "Esperando treinamento"
+        duration = datetime.utcnow() - created_at
+        hours, remainder = divmod(duration.total_seconds(), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        if hours == 0:
+            waiting_time = str(int(minutes)) + " min"
+        else:
+            waiting_time = str(int(hours)) + "h e " + \
+                str(int(minutes)) + " min"
+    elif status == "failed":
+        status = "Falhou"
+        waiting_time = "-"
+    elif status == "approved":
+        status = "Aprovado"
+        waiting_time = "-"
+
+    return {
+        "model_id": model_id,
+        "user_requested_id": user_requested_id,
+        "username": username,
+        "gender": gender,
+        "preference": preference,
+        "status": status,
+        "waiting_time": waiting_time,
+    }
+
+
+@api.route("/get_models", methods=["GET"])
+def get_models():
+    query = """
+      SELECT m.id
+            , u.id
+            , u.username
+	          , u.gender
+	          , u.preference
+	          , m.status
+	          , m.created_at
+	          , CASE WHEN m.status = 'pending' THEN 1
+	          	   WHEN m.status = 'failed' THEN 2
+	          	   WHEN m.status = 'approved' THEN 3
+	          	   ELSE 4
+	          END as order_type
+      FROM models as m
+      LEFT JOIN users u on u.id = m.user_requested_id
+      ORDER BY 8,7"""
+
+    result = list(db.session.execute(query))
+    models_users = []
+    for user in result:
+        model_id = user[0]
+        user_requested_id = user[1]
+        username = user[2]
+        gender = user[3]
+        preference = user[4]
+        status = user[5]
+        created_at = user[6]
+        formated_user = format_model_user(
+            model_id, user_requested_id, username, gender, preference, status, created_at)
+        models_users.append(formated_user)
+    return models_users
+
+
+@api.route("/model_ready/<user_requested_id>", methods=["GET"])
+def model_ready(user_requested_id):
+    query = """
+      SELECT *
+      FROM models as m
+      WHERE user_requested_id = :user_requested_id and status != 'pending'
+      ORDER BY created_at desc
+      LIMIT 1"""
+
+    result = list(db.session.execute(
+        query, {"user_requested_id": user_requested_id}))
+    if len(result) == 0:
+        status = "pending"
+    else:
+        user_requested_id = result[0][1]
+        status = result[0][3]
+    return {
+        "user_requested_id": user_requested_id,
+        "status": status,
+    }

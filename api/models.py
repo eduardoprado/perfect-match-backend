@@ -59,12 +59,16 @@ class Images (db.Model):
 class Models (db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_requested_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    admin_evaluated_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    url = db.Column(db.String(200), nullable=False)
+    admin_evaluated_id = db.Column(db.Integer, db.ForeignKey('admins.id'))
+    status = db.Column(db.String(200), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False,
                            default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False,
                            default=datetime.utcnow)
+
+    def __init__(self, user_requested_id, status):
+        self.user_requested_id = user_requested_id
+        self.status = status
 
 
 class Likes (db.Model):
